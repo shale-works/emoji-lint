@@ -1,0 +1,21 @@
+{
+  "name": "emoji-lint",
+  "version": "0.1.0",
+  "description": "A dependency-free linter that finds malformed emoji sequences and reports line and column numbers",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/linter.js",
+  "types": "dist/linter.d.ts",
+  "bin": {
+    "emoji-lint": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p ."
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}
