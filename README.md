@@ -55,6 +55,16 @@ node dist/cli.js path/to/file.txt
 It prints one line per finding and exits non-zero if any finding is an
 error.
 
+## Testing
+
+```sh
+npm test
+```
+
+Runs every rule against a table of known-good and known-broken sequences
+using node's built-in test runner, plus a handful of tests on `lintLine`
+and `lintText` for line numbering and ordering.
+
 ## Status
 
 Early skeleton. The rule set above covers the most common ways emoji
