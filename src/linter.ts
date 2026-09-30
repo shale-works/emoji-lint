@@ -2,6 +2,7 @@ import {
   Finding,
   findBrokenTagSequences,
   findDanglingJoiners,
+  findRedundantVariationSelectors,
   findStrayKeycaps,
   findStrayModifiers,
   findUnpairedRegionalIndicators,
@@ -21,6 +22,7 @@ export function lintLine(line: string, lineNumber: number): Finding[] {
     ...findStrayModifiers(codePoints, lineNumber),
     ...findStrayKeycaps(codePoints, lineNumber),
     ...findBrokenTagSequences(codePoints, lineNumber),
+    ...findRedundantVariationSelectors(codePoints, lineNumber),
   ];
   return findings.sort((a, b) => a.column - b.column);
 }

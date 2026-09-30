@@ -20,6 +20,109 @@ const COMBINING_ENCLOSING_KEYCAP = 0x20e3;
 const CANCEL_TAG = 0xe007f;
 const BLACK_FLAG = 0x1f3f4;
 
+// Code points with Emoji_Presentation=Yes in emoji-data.txt (Unicode 15.1):
+// they already render as emoji without a variation selector. Stored as
+// inclusive [start, end] pairs, sorted, so lookup can binary search.
+const EMOJI_PRESENTATION_RANGES: ReadonlyArray<readonly [number, number]> = [
+  [0x231a, 0x231b],
+  [0x23e9, 0x23ec],
+  [0x23f0, 0x23f0],
+  [0x23f3, 0x23f3],
+  [0x25fd, 0x25fe],
+  [0x2614, 0x2615],
+  [0x2648, 0x2653],
+  [0x267f, 0x267f],
+  [0x2693, 0x2693],
+  [0x26a1, 0x26a1],
+  [0x26aa, 0x26ab],
+  [0x26bd, 0x26be],
+  [0x26c4, 0x26c5],
+  [0x26ce, 0x26ce],
+  [0x26d4, 0x26d4],
+  [0x26ea, 0x26ea],
+  [0x26f2, 0x26f3],
+  [0x26f5, 0x26f5],
+  [0x26fa, 0x26fa],
+  [0x26fd, 0x26fd],
+  [0x2705, 0x2705],
+  [0x270a, 0x270b],
+  [0x2728, 0x2728],
+  [0x274c, 0x274c],
+  [0x274e, 0x274e],
+  [0x2753, 0x2755],
+  [0x2757, 0x2757],
+  [0x2795, 0x2797],
+  [0x27b0, 0x27b0],
+  [0x27bf, 0x27bf],
+  [0x2b1b, 0x2b1c],
+  [0x2b50, 0x2b50],
+  [0x2b55, 0x2b55],
+  [0x1f004, 0x1f004],
+  [0x1f0cf, 0x1f0cf],
+  [0x1f18e, 0x1f18e],
+  [0x1f191, 0x1f19a],
+  [0x1f1e6, 0x1f1ff],
+  [0x1f201, 0x1f201],
+  [0x1f21a, 0x1f21a],
+  [0x1f22f, 0x1f22f],
+  [0x1f232, 0x1f236],
+  [0x1f238, 0x1f23a],
+  [0x1f250, 0x1f251],
+  [0x1f300, 0x1f320],
+  [0x1f32d, 0x1f335],
+  [0x1f337, 0x1f37c],
+  [0x1f37e, 0x1f393],
+  [0x1f3a0, 0x1f3ca],
+  [0x1f3cf, 0x1f3d3],
+  [0x1f3e0, 0x1f3f0],
+  [0x1f3f4, 0x1f3f4],
+  [0x1f3f8, 0x1f43e],
+  [0x1f440, 0x1f440],
+  [0x1f442, 0x1f4fc],
+  [0x1f4ff, 0x1f53d],
+  [0x1f54b, 0x1f54e],
+  [0x1f550, 0x1f567],
+  [0x1f57a, 0x1f57a],
+  [0x1f595, 0x1f596],
+  [0x1f5a4, 0x1f5a4],
+  [0x1f5fb, 0x1f64f],
+  [0x1f680, 0x1f6c5],
+  [0x1f6cc, 0x1f6cc],
+  [0x1f6d0, 0x1f6d2],
+  [0x1f6d5, 0x1f6d7],
+  [0x1f6dc, 0x1f6df],
+  [0x1f6eb, 0x1f6ec],
+  [0x1f6f4, 0x1f6fc],
+  [0x1f7e0, 0x1f7eb],
+  [0x1f7f0, 0x1f7f0],
+  [0x1f90c, 0x1f93a],
+  [0x1f93c, 0x1f945],
+  [0x1f947, 0x1f9ff],
+  [0x1fa70, 0x1fa7c],
+  [0x1fa80, 0x1fa89],
+  [0x1fa8f, 0x1fac6],
+  [0x1face, 0x1fadc],
+  [0x1fadf, 0x1fae9],
+  [0x1faf0, 0x1faf8],
+];
+
+function hasEmojiPresentation(codePoint: number): boolean {
+  let low = 0;
+  let high = EMOJI_PRESENTATION_RANGES.length - 1;
+  while (low <= high) {
+    const mid = (low + high) >> 1;
+    const [start, end] = EMOJI_PRESENTATION_RANGES[mid];
+    if (codePoint < start) {
+      high = mid - 1;
+    } else if (codePoint > end) {
+      low = mid + 1;
+    } else {
+      return true;
+    }
+  }
+  return false;
+}
+
 function isRegionalIndicator(codePoint: number): boolean {
   return codePoint >= 0x1f1e6 && codePoint <= 0x1f1ff;
 }
@@ -152,6 +255,32 @@ export function findStrayKeycaps(codePoints: number[], line: number): Finding[] 
         sequence: sequenceOf(codePoints, i, i + 1),
       });
     }
+  }
+  return findings;
+}
+
+// VS16 asks for emoji presentation. On a character that already defaults to
+// emoji it changes nothing, and it usually means text was pasted through a
+// tool that adds the selector everywhere. Harmless to render, so a warning.
+export function findRedundantVariationSelectors(
+  codePoints: number[],
+  line: number,
+): Finding[] {
+  const findings: Finding[] = [];
+  for (let i = 1; i < codePoints.length; i++) {
+    if (codePoints[i] !== VARIATION_SELECTOR_16) continue;
+    if (!hasEmojiPresentation(codePoints[i - 1])) continue;
+    findings.push({
+      line,
+      column: i + 1,
+      rule: "redundant-variation-selector",
+      severity: "warning",
+      message: `variation selector 16 follows U+${codePoints[i - 1]
+        .toString(16)
+        .toUpperCase()
+        .padStart(4, "0")}, which already has emoji presentation`,
+      sequence: sequenceOf(codePoints, i - 1, i + 1),
+    });
   }
   return findings;
 }

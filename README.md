@@ -25,6 +25,10 @@ one with a line and column number, the same way a code linter would.
 - **Broken tag sequences** — the mechanism behind subdivision flags (England,
   Scotland, Wales): tag characters used without a leading black flag base
   (U+1F3F4) or without a closing cancel tag (U+E007F).
+- **Redundant variation selectors** — VS16 (U+FE0F) after a character that
+  already renders as emoji by default, such as U+1F600. Reported as a
+  warning, since it renders fine. The table of default-emoji characters
+  follows Unicode 15.1.
 
 ## Usage
 

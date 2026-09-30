@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   findBrokenTagSequences,
   findDanglingJoiners,
+  findRedundantVariationSelectors,
   findStrayKeycaps,
   findStrayModifiers,
   findUnpairedRegionalIndicators,
@@ -127,6 +128,47 @@ test("findStrayKeycaps", async (t) => {
   await t.test("a keycap mark on a letter is flagged", () => {
     const findings = findStrayKeycaps(toCodePoints("a⃣"), 1);
     assert.equal(findings.length, 1);
+  });
+});
+
+test("findRedundantVariationSelectors", async (t) => {
+  const VS16 = String.fromCodePoint(0xfe0f);
+
+  await t.test("VS16 on a text-default character is not flagged", () => {
+    // U+2764 heavy black heart needs VS16 to render as emoji.
+    const text = String.fromCodePoint(0x2764) + VS16;
+    assert.deepEqual(findRedundantVariationSelectors(toCodePoints(text), 1), []);
+  });
+
+  await t.test("VS16 on an emoji-default character is flagged", () => {
+    const text = "a" + String.fromCodePoint(0x1f600) + VS16;
+    const findings = findRedundantVariationSelectors(toCodePoints(text), 3);
+    assert.equal(findings.length, 1);
+    assert.equal(findings[0].rule, "redundant-variation-selector");
+    assert.equal(findings[0].severity, "warning");
+    assert.equal(findings[0].line, 3);
+    assert.equal(findings[0].column, 3);
+    assert.match(findings[0].message, /U\+1F600/);
+  });
+
+  await t.test("range edges are matched", () => {
+    for (const cp of [0x231a, 0x231b, 0x2b55, 0x1faf8]) {
+      const text = String.fromCodePoint(cp) + VS16;
+      assert.equal(findRedundantVariationSelectors(toCodePoints(text), 1).length, 1);
+    }
+  });
+
+  await t.test("code points just outside a range are not matched", () => {
+    for (const cp of [0x2319, 0x231c, 0x1faf9]) {
+      const text = String.fromCodePoint(cp) + VS16;
+      assert.deepEqual(findRedundantVariationSelectors(toCodePoints(text), 1), []);
+    }
+  });
+
+  await t.test("a leading VS16 and an emoji without one are not flagged", () => {
+    assert.deepEqual(findRedundantVariationSelectors(toCodePoints(VS16), 1), []);
+    const grin = String.fromCodePoint(0x1f600);
+    assert.deepEqual(findRedundantVariationSelectors(toCodePoints(grin), 1), []);
   });
 });
 
